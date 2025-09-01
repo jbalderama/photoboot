@@ -147,6 +147,16 @@
         </div>
     </div>
 
+    <!-- Photo Popup Modal -->
+    <div id="photoPopup" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-4xl max-h-screen p-4">
+            <button id="closePopup" class="absolute top-2 right-2 bg-white text-black rounded-full w-8 h-8 flex items-center justify-center text-xl font-bold hover:bg-gray-200 z-10">
+                ×
+            </button>
+            <img id="popupImage" src="" alt="Full size photo" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl">
+        </div>
+    </div>
+
     <script>
         class Photobooth {
             constructor() {
@@ -193,7 +203,10 @@
                     pagination: document.getElementById('pagination'),
                     prevPage: document.getElementById('prevPage'),
                     nextPage: document.getElementById('nextPage'),
-                    pageInfo: document.getElementById('pageInfo')
+                    pageInfo: document.getElementById('pageInfo'),
+                    photoPopup: document.getElementById('photoPopup'),
+                    popupImage: document.getElementById('popupImage'),
+                    closePopup: document.getElementById('closePopup')
                 };
             }
             
@@ -210,6 +223,12 @@
                 this.elements.clearGallery.addEventListener('click', () => this.clearGallery());
                 this.elements.prevPage.addEventListener('click', () => this.changePage(-1));
                 this.elements.nextPage.addEventListener('click', () => this.changePage(1));
+                this.elements.closePopup.addEventListener('click', () => this.hidePhotoPopup());
+                this.elements.photoPopup.addEventListener('click', (e) => {
+                    if (e.target === this.elements.photoPopup) {
+                        this.hidePhotoPopup();
+                    }
+                });
             }
             
             toggleAdmin() {
@@ -274,11 +293,14 @@
                 slots.style.position = 'relative';
                 
                 if (this.layoutSize === '6x4') {
-                    // 6x4 layout positioning - Picture 1 bigger, others smaller
+                    // 6x4 layout positioning - Custom sizing based on quarter frame
+                    const previewQuarterWidth = 400 / 4; // 100px
+                    const previewQuarterHeight = 267 / 4; // ~67px
+                    
                     const positions = [
-                        { position: 'absolute', left: '15px', bottom: '15px', width: '120px', height: '90px' }, // Picture 1: lower left (bigger)
-                        { position: 'absolute', right: '15px', top: '15px', width: '80px', height: '60px' }, // Picture 2: upper right
-                        { position: 'absolute', right: '15px', bottom: '15px', width: '80px', height: '60px' } // Picture 3: lower right
+                        { position: 'absolute', left: '25px', bottom: '15px', width: `${previewQuarterWidth * 1.8}px`, height: `${previewQuarterHeight * 1.8}px` }, // Picture 1: 1.8x quarter frame
+                        { position: 'absolute', right: '10px', top: '15px', width: `${previewQuarterWidth * 1.4}px`, height: `${previewQuarterHeight * 1.5}px` }, // Picture 2: 1.4x width, 1.5x height
+                        { position: 'absolute', right: '10px', bottom: '15px', width: `${previewQuarterWidth * 1.4}px`, height: `${previewQuarterHeight * 1.5}px` } // Picture 3: 1.4x width, 1.5x height
                     ];
                     
                     for (let i = 0; i < 3; i++) {
@@ -475,22 +497,15 @@
                     }
                     
                     if (this.layoutSize === '6x4') {
-                        // 6x4 layout - leave 1/4 of right side for design background
-                        const availableWidth = canvas.width * 0.75; // Use 3/4 of width for photos
-                        
-                        // Photo sizes - Picture 1 bigger, others smaller
-                        const photo1Width = 200;
-                        const photo1Height = 150;
-                        const photo2Width = 140;
-                        const photo2Height = 105;
-                        const photo3Width = 140;
-                        const photo3Height = 105;
+                        // 6x4 layout - Custom sizing based on quarter frame
+                        const quarterFrameWidth = canvas.width / 4;
+                        const quarterFrameHeight = canvas.height / 4;
                         
                         // Photo positions for 6x4 layout
                         const positions = [
-                            { x: padding, y: canvas.height - photo1Height - padding, width: photo1Width, height: photo1Height }, // Picture 1: lower left (bigger)
-                            { x: availableWidth - photo2Width - padding, y: padding, width: photo2Width, height: photo2Height }, // Picture 2: upper right
-                            { x: availableWidth - photo3Width - padding, y: canvas.height - photo3Height - padding, width: photo3Width, height: photo3Height } // Picture 3: lower right
+                            { x: 25, y: canvas.height - (quarterFrameHeight * 1.8) - 15, width: quarterFrameWidth * 1.8, height: quarterFrameHeight * 1.8 }, // Picture 1: 1.8x quarter frame
+                            { x: canvas.width - (quarterFrameWidth * 1.4) - 50, y: 30, width: quarterFrameWidth * 1.4, height: quarterFrameHeight * 1.5 }, // Picture 2: 1.4x width, 1.5x height
+                            { x: canvas.width - (quarterFrameWidth * 1.4) - 50, y: canvas.height - (quarterFrameHeight * 1.5) - 25, width: quarterFrameWidth * 1.4, height: quarterFrameHeight * 1.5 } // Picture 3: 1.4x width, 1.5x height
                         ];
                         
                         this.currentPhotos.forEach((photo, index) => {
@@ -568,6 +583,13 @@
                         </div>
                     `;
                     
+                    // Add click event for popup
+                    photoElement.addEventListener('click', (e) => {
+                        if (!e.target.classList.contains('download-btn')) {
+                            this.showPhotoPopup(photo);
+                        }
+                    });
+                    
                     photoElement.querySelector('.download-btn').addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.downloadPhoto(photo, startIndex + index + 1);
@@ -606,11 +628,27 @@
             }
             
             clearGallery() {
-                if (confirm('Are you sure you want to clear all photos?')) {
-                    this.allPhotos = [];
-                    this.currentPage = 1;
-                    this.updateGallery();
+                const password = prompt('Enter password to clear gallery:');
+                if (password === '12345') {
+                    if (confirm('Are you sure you want to clear all photos?')) {
+                        this.allPhotos = [];
+                        this.currentPage = 1;
+                        this.updateGallery();
+                    }
+                } else if (password !== null) {
+                    alert('Incorrect password!');
                 }
+            }
+            
+            showPhotoPopup(photoSrc) {
+                this.elements.popupImage.src = photoSrc;
+                this.elements.photoPopup.classList.remove('hidden');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            }
+            
+            hidePhotoPopup() {
+                this.elements.photoPopup.classList.add('hidden');
+                document.body.style.overflow = 'auto'; // Restore scrolling
             }
             
             delay(ms) {
@@ -623,5 +661,5 @@
             new Photobooth();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97852607e0bb850e',t:'MTc1NjczMzcwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'978631f38559fed8',t:'MTc1Njc0NDY3Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
